@@ -1,9 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import fs from 'fs/promises'
-import path from 'path'
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
@@ -17,8 +15,14 @@ export default defineConfig({
               res.setHeader('Content-Type', 'application/json');
               res.end(data);
             } catch (error) {
-              res.statusCode = 500;
-              res.end(JSON.stringify({ error: 'Failed to read URLs' }));
+              if (error.code === 'ENOENT') {
+                // If file doesn't exist, return empty array
+                res.setHeader('Content-Type', 'application/json');
+                res.end('[]');
+              } else {
+                res.statusCode = 500;
+                res.end(JSON.stringify({ error: 'Failed to read URLs' }));
+              }
             }
           } else if (req.method === 'POST' && req.url === '/api/urls') {
             let body = '';
@@ -41,5 +45,5 @@ export default defineConfig({
         });
       }
     }
-  ],
-})
+  ]
+});
