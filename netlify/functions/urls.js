@@ -1,7 +1,27 @@
 const { nanoid } = require('nanoid');
+const fs = require('fs').promises;
+const path = require('path');
 
-// In-memory cache (this will reset on function cold starts)
-let urls = [];
+// File path for storing URLs
+const URLS_FILE = path.join(process.cwd(), 'src', 'url-shortened.json');
+
+// Helper function to read URLs from file
+async function readUrls() {
+  try {
+    const data = await fs.readFile(URLS_FILE, 'utf-8');
+    return JSON.parse(data);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return [];
+    }
+    throw error;
+  }
+}
+
+// Helper function to write URLs to file
+async function writeUrls(urls) {
+  await fs.writeFile(URLS_FILE, JSON.stringify(urls, null, 2));
+}
 
 exports.handler = async (event) => {
   const headers = {
@@ -20,7 +40,7 @@ exports.handler = async (event) => {
 
   try {
     if (event.httpMethod === 'GET') {
-      // Return all URLs
+      const urls = await readUrls();
       return {
         statusCode: 200,
         headers,
@@ -29,11 +49,17 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'POST') {
+      const urls = await readUrls();
       const body = JSON.parse(event.body);
 
       if (Array.isArray(body)) {
         // Update entire URL list
-        urls = body;
+        await writeUrls(body);
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify(body)
+        };
       } else {
         // Create new short URL
         const shortId = body.customId || nanoid(8);
@@ -50,14 +76,16 @@ exports.handler = async (event) => {
           createdAt: Date.now(),
           totalClicks: 0
         };
-        urls.unshift(newUrl);
-      }
 
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify(urls)
-      };
+        const updatedUrls = [newUrl, ...urls];
+        await writeUrls(updatedUrls);
+
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify(updatedUrls)
+        };
+      }
     }
 
     return {
