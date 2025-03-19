@@ -5,6 +5,8 @@ export interface ShortenedURL {
   username?: string;
   password?: string;
   createdAt: number;
+  totalClicks: number;
+  lastClickedAt?: number;
 }
 
 export interface EditURLFormData {

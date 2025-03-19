@@ -6,7 +6,7 @@ const plans = [
     name: 'Free',
     price: '$0',
     features: [
-      'Up to 50 links per month',
+      'Unlimited links',
       'Basic analytics',
       'Standard support',
       'Ad-supported'
