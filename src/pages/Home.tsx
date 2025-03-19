@@ -28,8 +28,13 @@ function Home() {
       setPassword(savedPassword);
     }
 
-    fetch('/api/urls')
-      .then(response => response.json())
+    fetch('/.netlify/functions/urls')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
       .then(data => {
         setShortenedUrls(data);
         if (savedUsername && savedPassword) {
@@ -75,21 +80,6 @@ function Home() {
     setUserUrls([]);
   };
 
-  const saveUrls = async (urls: ShortenedURL[]) => {
-    try {
-      await fetch('/api/urls', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(urls, null, 2),
-      });
-    } catch (error) {
-      console.error('Error saving URLs:', error);
-      throw new Error('Failed to save URLs');
-    }
-  };
-
   const generateShortUrl = async () => {
     if (!url) {
       setError('Please enter a URL');
@@ -97,25 +87,30 @@ function Home() {
     }
 
     try {
-      const shortId = nanoid(8);
-      const newShortenedUrl: ShortenedURL = {
-        originalUrl: url,
-        shortUrl: `${window.location.origin}/${shortId}`,
-        shortId,
-        username: username || undefined,
-        password: password || undefined,
-        createdAt: Date.now(),
-        totalClicks: 0
-      };
+      const response = await fetch('/.netlify/functions/urls', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          originalUrl: url,
+          username: username || undefined,
+          password: password || undefined,
+        }),
+      });
 
-      const updatedUrls = [newShortenedUrl, ...shortenedUrls];
-      setShortenedUrls(updatedUrls);
-      await saveUrls(updatedUrls);
-
-      if (!username) {
-        localStorage.setItem(`url_${shortId}`, 'true');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      setUserUrls([newShortenedUrl, ...userUrls]);
+
+      const updatedUrls = await response.json();
+      setShortenedUrls(updatedUrls);
+      
+      const newUrl = updatedUrls[0]; // The newly added URL is at the start
+      if (!username) {
+        localStorage.setItem(`url_${newUrl.shortId}`, 'true');
+      }
+      setUserUrls([newUrl, ...userUrls]);
 
       setUrl('');
       setError('');

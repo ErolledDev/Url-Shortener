@@ -37,10 +37,16 @@ exports.handler = async (event) => {
       } else {
         // Create new short URL
         const shortId = body.customId || nanoid(8);
+        const baseUrl = event.headers.host.startsWith('localhost') 
+          ? `http://${event.headers.host}`
+          : `https://${event.headers.host}`;
+          
         const newUrl = {
-          originalUrl: body.url,
-          shortUrl: `${event.headers.host}/${shortId}`,
+          originalUrl: body.originalUrl,
+          shortUrl: `${baseUrl}/${shortId}`,
           shortId,
+          username: body.username,
+          password: body.password,
           createdAt: Date.now(),
           totalClicks: 0
         };
@@ -60,10 +66,11 @@ exports.handler = async (event) => {
       body: JSON.stringify({ error: 'Method not allowed' })
     };
   } catch (error) {
+    console.error('Error in urls function:', error);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Internal server error' })
+      body: JSON.stringify({ error: 'Internal server error', details: error.message })
     };
   }
 };

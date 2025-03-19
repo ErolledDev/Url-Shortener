@@ -6,7 +6,15 @@ exports.handler = async (event) => {
   };
 
   try {
-    const response = await fetch(`${event.headers.host}/.netlify/functions/urls`);
+    const baseUrl = event.headers.host.startsWith('localhost') 
+      ? `http://${event.headers.host}`
+      : `https://${event.headers.host}`;
+
+    const response = await fetch(`${baseUrl}/.netlify/functions/urls`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch URLs: ${response.statusText}`);
+    }
+
     const urls = await response.json();
     const url = urls.find(u => u.shortId === shortId);
 
@@ -16,17 +24,21 @@ exports.handler = async (event) => {
       url.lastClickedAt = Date.now();
 
       // Save updated stats
-      await fetch(`${event.headers.host}/.netlify/functions/urls`, {
+      const updateResponse = await fetch(`${baseUrl}/.netlify/functions/urls`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(urls)
       });
 
+      if (!updateResponse.ok) {
+        console.error('Failed to update click stats');
+      }
+
       return {
         statusCode: 302,
         headers: {
           ...headers,
-          Location: url.originalUrl
+          Location: url.originalUrl.startsWith('http') ? url.originalUrl : `https://${url.originalUrl}`
         }
       };
     }
@@ -37,10 +49,11 @@ exports.handler = async (event) => {
       body: JSON.stringify({ error: 'URL not found' })
     };
   } catch (error) {
+    console.error('Error in redirect function:', error);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Internal server error' })
+      body: JSON.stringify({ error: 'Internal server error', details: error.message })
     };
   }
 };
